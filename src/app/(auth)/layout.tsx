@@ -25,7 +25,7 @@ export default function AuthLayout({
 
       {/* 푸터 */}
       <footer className="py-4 text-center text-xs text-gray-500">
-        © 2024 TripSplit
+        © 2026 TripSplit
       </footer>
     </div>
   );
