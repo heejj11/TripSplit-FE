@@ -1,77 +1,32 @@
-"use client";
-
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { Home, Plus, Link2 } from "lucide-react";
-import Header from "@/components/layout/Header";
+import { Plane } from "lucide-react";
 
-export default function MainLayout({
+export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const menuItems = [
-    { href: "/trips", icon: Home, label: "내 여행" },
-    { href: "/trips/new", icon: Plus, label: "새 여행 만들기" },
-    { href: "/join", icon: Link2, label: "초대코드로 참여" },
-  ];
-
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
-      {/* 헤더 */}
-      <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+    <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
+      {/* 헤더 - 로고만 */}
+      <header className="py-4 sm:py-6 px-4 sm:px-6">
+        <Link href="/" className="flex items-center gap-2 w-fit mx-auto">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <Plane size={18} className="text-white" />
+          </div>
+          <span className="font-bold text-lg">TripSplit</span>
+        </Link>
+      </header>
 
-      {/* 모바일 사이드바 오버레이 */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 sm:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* 사이드바 */}
-      <aside
-        className={`
-        fixed top-0 left-0 h-full w-64 bg-white border-r z-50 pt-14
-        transform transition-transform duration-200
-        sm:translate-x-0
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-        sm:z-30
-      `}
-      >
-        <div className="p-4">
-          <nav className="space-y-1">
-            {menuItems.map((item) => {
-              const isActive =
-                pathname === item.href || pathname.startsWith(item.href + "/");
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition ${
-                    isActive
-                      ? "bg-blue-50 text-blue-600"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  <item.icon size={20} />
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-      </aside>
-
-      {/* 메인 컨텐츠 */}
-      <main className="pt-14 sm:pl-64">
-        <div className="p-4 sm:p-6">{children}</div>
+      {/* 컨텐츠 - 가운데 정렬 */}
+      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 py-8">
+        {children}
       </main>
+
+      {/* 푸터 */}
+      <footer className="py-4 text-center text-xs text-gray-500">
+        © 2024 TripSplit
+      </footer>
     </div>
   );
 }
