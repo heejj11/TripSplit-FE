@@ -1,66 +1,101 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
   ArrowLeft, Settings, Copy, Share2, Users, Receipt, 
   PieChart, ChevronDown, ChevronUp, Plus, Calculator, Check, Clock 
 } from 'lucide-react';
+import { fetchApi } from '@/lib/api';
+import { ApiResponse, TripDetail, ExpenseListItem } from '@/types';
 
 export default function TripDetailPage() {
   const router = useRouter();
+  const params = useParams();
+  const tripId = params.id as string;
+  
+  const [trip, setTrip] = useState<TripDetail | null>(null);
+  const [expenses, setExpenses] = useState<ExpenseListItem[]>([]);
   const [activeTab, setActiveTab] = useState<'expenses' | 'stats' | 'settlement'>('expenses');
   const [showInvite, setShowInvite] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
-  const trip = {
-    id: 1,
-    title: '제주도 여행',
-    startDate: '2024-03-15',
-    endDate: '2024-03-18',
-    inviteCode: 'ABC123',
-    memberCount: 4,
-    totalExpense: 630000,
+  useEffect(() => {
+    loadTripData();
+  }, [tripId]);
+
+  const loadTripData = async () => {
+    try {
+      const [tripRes, expensesRes] = await Promise.all([
+        fetchApi<ApiResponse<TripDetail>>(`/trips/${tripId}`),
+        fetchApi<ApiResponse<ExpenseListItem[]>>(`/trips/${tripId}/expenses`)
+      ]);
+      setTrip(tripRes.data);
+      setExpenses(expensesRes.data);
+    } catch (error) {
+      console.error('여행 데이터 로딩 실패:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
-
-  const members = [
-    { id: 1, name: '김철수', color: 'bg-blue-500' },
-    { id: 2, name: '이영희', color: 'bg-pink-500' },
-    { id: 3, name: '박민수', color: 'bg-green-500' },
-    { id: 4, name: '최지연', color: 'bg-purple-500' },
-  ];
-
-  const expenses = [
-    { id: 1, title: '숙소 예약', amount: 400000, paidBy: '김철수', category: '🏨', date: '03.15' },
-    { id: 2, title: '점심 식사', amount: 80000, paidBy: '이영희', category: '🍽️', date: '03.15' },
-    { id: 3, title: '렌터카', amount: 150000, paidBy: '박민수', category: '🚗', date: '03.15' },
-  ];
-
-  const settlementGroups = [
-    {
-      receiver: { id: 1, name: '김철수', color: '#3B82F6' },
-      totalAmount: 105000,
-      settlements: [
-        { id: 1, from: { id: 2, name: '이영희', color: '#EC4899' }, amount: 50000, status: 'PENDING' as const },
-        { id: 2, from: { id: 3, name: '박민수', color: '#22C55E' }, amount: 30000, status: 'COMPLETED' as const },
-        { id: 3, from: { id: 4, name: '최지연', color: '#A855F7' }, amount: 25000, status: 'PENDING' as const },
-      ]
-    },
-    {
-      receiver: { id: 3, name: '박민수', color: '#22C55E' },
-      totalAmount: 20000,
-      settlements: [
-        { id: 4, from: { id: 2, name: '이영희', color: '#EC4899' }, amount: 20000, status: 'PENDING' as const },
-      ]
-    },
-  ];
-
-  const currentUserId = 1;
 
   const copyInviteCode = () => {
+    if (!trip) return;
     navigator.clipboard.writeText(trip.inviteCode);
-    alert('초대코드가 복사되었습니다!');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
+  };
+
+  const formatCurrency = (amount: number) => {
+    if (!trip) return `₩${amount.toLocaleString()}`;
+    return new Intl.NumberFormat('ko-KR', {
+      style: 'currency',
+      currency: trip.currency || 'KRW',
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const getCategoryEmoji = (icon: string | undefined) => {
+    const emojiMap: Record<string, string> = {
+      'bed': '🏨',
+      'utensils': '🍽️',
+      'car': '🚗',
+      'camera': '📸',
+      'shopping-bag': '🛍️',
+      'ellipsis': '📦',
+    };
+    return icon ? emojiMap[icon] || '📦' : '📦';
+  };
+
+  const getMemberColor = (index: number) => {
+    const colors = ['bg-blue-500', 'bg-pink-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-cyan-500'];
+    return colors[index % colors.length];
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!trip) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-gray-500">여행을 찾을 수 없습니다.</p>
+      </div>
+    );
+  }
+
+  const perPerson = trip.members.length > 0 ? trip.totalExpense / trip.members.length : 0;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -75,7 +110,9 @@ export default function TripDetailPage() {
           </button>
           <div className="min-w-0">
             <h1 className="font-bold truncate">{trip.title}</h1>
-            <p className="text-xs text-gray-500">{trip.startDate} ~ {trip.endDate}</p>
+            <p className="text-xs text-gray-500">
+              {formatDate(trip.startDate)} ~ {formatDate(trip.endDate)}
+            </p>
           </div>
         </div>
         <button className="p-2 hover:bg-gray-200 rounded-lg transition flex-shrink-0">
@@ -91,7 +128,7 @@ export default function TripDetailPage() {
         >
           <div className="flex items-center gap-2">
             <Users size={18} className="text-blue-600" />
-            <span className="font-medium text-sm">초대코드 · {trip.memberCount}명</span>
+            <span className="font-medium text-sm">초대코드 · {trip.members.length}명</span>
           </div>
           {showInvite ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </button>
@@ -105,19 +142,19 @@ export default function TripDetailPage() {
                 onClick={copyInviteCode}
                 className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
               >
-                <Copy size={18} />
+                {copied ? <Check size={18} className="text-green-500" /> : <Copy size={18} />}
               </button>
               <button className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                 <Share2 size={18} />
               </button>
             </div>
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              {members.map((m) => (
-                <div key={m.id} className="flex flex-col items-center flex-shrink-0">
-                  <div className={`w-9 h-9 ${m.color} rounded-full flex items-center justify-center text-white text-sm font-medium`}>
-                    {m.name[0]}
+              {trip.members.map((m, idx) => (
+                <div key={m.memberId} className="flex flex-col items-center flex-shrink-0">
+                  <div className={`w-9 h-9 ${getMemberColor(idx)} rounded-full flex items-center justify-center text-white text-sm font-medium`}>
+                    {m.displayName[0]}
                   </div>
-                  <span className="text-xs text-gray-500 mt-1">{m.name}</span>
+                  <span className="text-xs text-gray-500 mt-1">{m.displayName}</span>
                 </div>
               ))}
               <button className="w-9 h-9 border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center text-gray-400 hover:border-blue-400 hover:text-blue-400 transition flex-shrink-0">
@@ -132,15 +169,17 @@ export default function TripDetailPage() {
       <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-3">
         <div className="bg-white p-2 sm:p-3 rounded-xl border text-center">
           <p className="text-xs text-gray-500">총 지출</p>
-          <p className="font-bold text-sm sm:text-base">₩{trip.totalExpense.toLocaleString()}</p>
+          <p className="font-bold text-sm sm:text-base">{formatCurrency(trip.totalExpense)}</p>
         </div>
         <div className="bg-white p-2 sm:p-3 rounded-xl border text-center">
           <p className="text-xs text-gray-500">1인당</p>
-          <p className="font-bold text-sm sm:text-base">₩{(trip.totalExpense / 4).toLocaleString()}</p>
+          <p className="font-bold text-sm sm:text-base">{formatCurrency(perPerson)}</p>
         </div>
         <div className="bg-white p-2 sm:p-3 rounded-xl border text-center">
           <p className="text-xs text-gray-500">내 정산</p>
-          <p className="font-bold text-blue-600 text-sm sm:text-base">+₩105,000</p>
+          <p className="font-bold text-blue-600 text-sm sm:text-base">
+            {trip.members[0]?.balance > 0 ? '+' : ''}{formatCurrency(trip.members[0]?.balance || 0)}
+          </p>
         </div>
       </div>
 
@@ -177,23 +216,36 @@ export default function TripDetailPage() {
                 <Plus size={14} />추가
               </Link>
             </div>
-            <div className="space-y-2">
-              {expenses.map((e) => (
-                <div 
-                  key={e.id} 
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition cursor-pointer"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xl flex-shrink-0">{e.category}</span>
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{e.title}</p>
-                      <p className="text-xs text-gray-500">{e.paidBy} · {e.date}</p>
+            {expenses.length > 0 ? (
+              <div className="space-y-2">
+                {expenses.map((e) => (
+                  <div 
+                    key={e.id} 
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xl flex-shrink-0">
+                        {getCategoryEmoji(e.category?.icon)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{e.description}</p>
+                        <p className="text-xs text-gray-500">
+                          {e.paidBy.displayName} · {formatDate(e.expenseDate)}
+                        </p>
+                      </div>
                     </div>
+                    <p className="font-semibold text-sm flex-shrink-0 ml-2">
+                      {formatCurrency(e.amount)}
+                    </p>
                   </div>
-                  <p className="font-semibold text-sm flex-shrink-0 ml-2">₩{e.amount.toLocaleString()}</p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-400">
+                <Receipt size={32} className="mx-auto mb-2 opacity-50" />
+                <p className="text-sm">아직 지출이 없어요</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -204,81 +256,29 @@ export default function TripDetailPage() {
           </div>
         )}
 
-        {/* 정산 탭 - 미니멀 스타일 */}
+        {/* 정산 탭 */}
         {activeTab === 'settlement' && (
           <div className="p-3 sm:p-4">
-            {/* 내 요약 */}
-            <div className="flex gap-3 sm:gap-4 mb-6">
-              <div className="flex-1 pb-3 border-b-2 border-blue-500">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">받을 돈</p>
-                <p className="text-xl sm:text-2xl font-light">₩105,000</p>
-              </div>
-              <div className="flex-1 pb-3 border-b-2 border-gray-200">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">보낼 돈</p>
-                <p className="text-xl sm:text-2xl font-light text-gray-400">₩0</p>
-              </div>
-            </div>
-
-            {/* 정산 목록 */}
-            <div className="space-y-6">
-              {settlementGroups.map((group) => {
-                const isMyGroup = group.receiver.id === currentUserId;
-                const completedCount = group.settlements.filter(s => s.status === 'COMPLETED').length;
-                
-                return (
-                  <div key={group.receiver.id}>
-                    {/* 헤더 */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium"
-                          style={{ backgroundColor: group.receiver.color }}
-                        >
-                          {group.receiver.name[0]}
-                        </div>
-                        <div>
-                          <p className="font-medium">
-                            {group.receiver.name}
-                            {isMyGroup && <span className="text-blue-500 text-sm ml-2">← 나</span>}
-                          </p>
-                          <p className="text-xs text-gray-400">{completedCount}/{group.settlements.length} 완료</p>
-                        </div>
-                      </div>
-                      <p className="text-base sm:text-lg font-semibold">₩{group.totalAmount.toLocaleString()}</p>
+            {/* 멤버별 정산 현황 */}
+            <div className="space-y-3">
+              {trip.members.map((member, idx) => (
+                <div key={member.memberId} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 ${getMemberColor(idx)} rounded-full flex items-center justify-center text-white font-medium`}>
+                      {member.displayName[0]}
                     </div>
-
-                    {/* 리스트 */}
-                    <div className="ml-5 pl-6 sm:pl-8 border-l-2 border-gray-100 space-y-0">
-                      {group.settlements.map((s, idx) => (
-                        <div 
-                          key={s.id}
-                          className={`flex items-center justify-between py-3 ${
-                            idx !== group.settlements.length - 1 ? 'border-b border-gray-50' : ''
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div 
-                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white text-xs"
-                              style={{ backgroundColor: s.from.color }}
-                            >
-                              {s.from.name[0]}
-                            </div>
-                            <span className="text-sm">{s.from.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <span className="font-medium text-sm">₩{s.amount.toLocaleString()}</span>
-                            {s.status === 'COMPLETED' ? (
-                              <Check size={16} className="text-green-500" />
-                            ) : (
-                              <Clock size={16} className="text-gray-300" />
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                    <div>
+                      <p className="font-medium">{member.displayName}</p>
+                      <p className="text-xs text-gray-500">
+                        지출: {formatCurrency(member.totalPaid)} · 부담: {formatCurrency(member.totalShare)}
+                      </p>
                     </div>
                   </div>
-                );
-              })}
+                  <p className={`font-semibold ${member.balance > 0 ? 'text-blue-600' : member.balance < 0 ? 'text-red-500' : 'text-gray-500'}`}>
+                    {member.balance > 0 ? '+' : ''}{formatCurrency(member.balance)}
+                  </p>
+                </div>
+              ))}
             </div>
 
             {/* 버튼 */}

@@ -3,9 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Users, Plane } from 'lucide-react';
+import { fetchApi } from '@/lib/api';
+import { ApiResponse, TripDetail } from '@/types';
 
 export default function TripCreatePage() {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -21,10 +24,28 @@ export default function TripCreatePage() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('여행 생성:', formData);
-    router.push('/trips/1');
+    setIsLoading(true);
+
+    try {
+      const response = await fetchApi<ApiResponse<TripDetail>>('/trips', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description || null,
+          startDate: formData.startDate || null,
+          endDate: formData.endDate || null,
+          currency: formData.currency,
+        }),
+      });
+      router.push(`/trips/${response.data.id}`);
+    } catch (error) {
+      console.error('여행 생성 실패:', error);
+      alert('여행 생성에 실패했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -82,7 +103,7 @@ export default function TripCreatePage() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <div className="flex items-center gap-2">
               <Calendar size={16} />
-              여행 기간 *
+              여행 기간 (선택)
             </div>
           </label>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -92,7 +113,6 @@ export default function TripCreatePage() {
               value={formData.startDate}
               onChange={handleChange}
               className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              required
             />
             <span className="text-gray-400 text-center">~</span>
             <input
@@ -101,7 +121,6 @@ export default function TripCreatePage() {
               value={formData.endDate}
               onChange={handleChange}
               className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              required
             />
           </div>
         </div>
@@ -135,9 +154,10 @@ export default function TripCreatePage() {
 
         <button
           type="submit"
-          className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition"
+          disabled={isLoading || !formData.title}
+          className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          여행 만들기
+          {isLoading ? '생성 중...' : '여행 만들기'}
         </button>
       </form>
     </div>
