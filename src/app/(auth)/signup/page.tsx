@@ -41,12 +41,7 @@ export default function SignupPage() {
     setTimeout(() => {
       setIsLoading(false);
       router.push("/login");
-    }, 1000);
-  };
-
-  const handleSocialLogin = (provider: string) => {
-    console.log(`${provider} 회원가입`);
-    // TODO: 소셜 로그인 구현
+    }, 500);
   };
 
   // 비밀번호 유효성 검사
@@ -73,7 +68,7 @@ export default function SignupPage() {
           </p>
         </div>
 
-        {/* 소셜 로그인 버튼 */}
+        {/* 소셜 로그인 */}
         <SocialLoginButtons />
 
         {/* 구분선 */}
